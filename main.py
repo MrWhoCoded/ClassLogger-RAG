@@ -1,10 +1,18 @@
 from astrapy import DataAPIClient
 import requests
 import google
+import os
+import dotenv
+
+dotenv.load_dotenv()
 
 
-ASTRADB_API_KEY = "AstraCS:EqEhdZdzhCAZQvNhZZBvRHUU:cbf0c1352e22d1138b9fe42cb49b91c72ccdfc909273339b3627500c43a579ba"
-ASTRADB_ENDPOINT = "https://5c624cdd-cc62-442f-93f4-8ec4efaa2dbf-us-east-2.apps.astra.datastax.com"
+ASTRADB_API_KEY = os.getenv("ASTRADB_API_KEY")
+ASTRADB_ENDPOINT = os.getenv("ASTRADB_ENDPOINT")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+if not ASTRADB_API_KEY or not ASTRADB_ENDPOINT:
+    raise ValueError("ASTRADB_API_KEY and ASTRADB_ENDPOINT must be set in .env file")
 
 client = DataAPIClient()
 db = client.get_database(
@@ -53,7 +61,7 @@ while True:
         resp = requests.post(
             endpoint,
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {}",
                 "Content-Type": "application/json"
             },
             json={
