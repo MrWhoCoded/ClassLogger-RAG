@@ -61,7 +61,7 @@ while True:
         resp = requests.post(
             endpoint,
             headers={
-                "Authorization": f"Bearer {}",
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
