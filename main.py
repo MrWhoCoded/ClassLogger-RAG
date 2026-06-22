@@ -1,23 +1,85 @@
-from langchain_ollama.llms import OllamaLLM
-from langchain_core.prompts import ChatPromptTemplate
-import vector
+from astrapy import DataAPIClient
+import requests
+import google
 
-model = OllamaLLM(model="qwen2.5:3b")
 
-template = """
-YOU ARE A HELPFUL ASSISTANT. ANSWER THE USER'S QUESTION IN A CONCISE MANNER. YOU ARE GIVEN WITH SOME SYLLABUS FROM A COURSE OF
-SOFTWARE ENGINEERING. THE USER WILL ASK YOU QUESTIONS RELATED TO THE SYLLABUS AND YOU HAVE TO ANSWER THEM BASED ON THE SYLLABUS.
-HERE IS THE SYLLABUS: {syllabus}
-HERE IS THE ANSWER TO THE USER'S QUESTION: {query}
-"""
+ASTRADB_API_KEY = "AstraCS:EqEhdZdzhCAZQvNhZZBvRHUU:cbf0c1352e22d1138b9fe42cb49b91c72ccdfc909273339b3627500c43a579ba"
+ASTRADB_ENDPOINT = "https://5c624cdd-cc62-442f-93f4-8ec4efaa2dbf-us-east-2.apps.astra.datastax.com"
 
-prompt = ChatPromptTemplate.from_template(template)
-chain = prompt | model
+client = DataAPIClient()
+db = client.get_database(
+    ASTRADB_ENDPOINT, token=ASTRADB_API_KEY
+)
+
+collection = db.get_collection("classloggertest")
+
+messages = {
+    "role": "system",
+    "content": "You are an AI assistant that can answer questions based on the context you are given. Don't mention the context, just use it to inform your answers."
+}
 
 while True:
     query = input("Enter your prompt: ")
     if query == "q":
         break
-    syllabus = vector.retriever.invoke(query)
-    result = chain.invoke({"syllabus": syllabus, "query": query})
-    print(result)
+    
+    try:
+        cursor = collection.find(
+                {},
+                sort={"$vectorize": query},
+                limit=5,
+                projection={"$vectorize": 1},
+            )
+        
+        docs = cursor.to_list()
+        context = "\n".join(
+            (doc.get("$vectorize") or "") for doc in docs
+        ).strip()
+        
+        rag_message = {
+                "role": "user",
+                "content": (
+                    f"{context}\n---\n"
+                    "Given the above context, answer the following question:\n"
+                    f"{query}"
+                ),
+            }
+        
+        endpoint = "https://openrouter.ai/api/v1/chat/completions"
+        # Ensure endpoint has a scheme
+        if not endpoint.startswith(("http://", "https://")):
+            endpoint = "https://" + endpoint
+
+        resp = requests.post(
+            endpoint,
+            headers={
+                "Authorization": "Bearer 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",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "qwen/qwen3.5-9b",
+                "messages": [
+                    messages, rag_message
+                ]
+            }
+        )
+
+        try:
+            resp.raise_for_status()
+        except Exception:
+            print(f"HTTP error {resp.status_code}: {resp.text}")
+            continue
+
+        try:
+            response = resp.json()
+        except ValueError:
+            print(f"Invalid JSON response (status {resp.status_code}): {resp.text}")
+            continue
+
+        #print(somejson['choices'])
+        print(response["choices"][0]["message"]["role"])
+        print(response["choices"][0]["message"]["content"])
+        print(response["choices"][0]["message"]["reasoning"])
+        print(response["choices"][0]["message"]["reasoning_details"][0])
+    except Exception as e:
+            print(str(e))
