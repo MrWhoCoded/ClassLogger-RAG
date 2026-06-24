@@ -7,6 +7,7 @@ import json
 
 from docling.document_converter import DocumentConverter
 
+
 ASTRA_DB_TOKEN = "AstraCS:EqEhdZdzhCAZQvNhZZBvRHUU:cbf0c1352e22d1138b9fe42cb49b91c72ccdfc909273339b3627500c43a579ba"
 ASTRA_DB_ENDPOINT = "YOUR_ENDPOINT"
 """
@@ -49,19 +50,23 @@ def chucker(text):
         if len(q.strip()) > 20
     ]
 """
-#converter = DocumentConverter()
+converter = DocumentConverter()
 
-#result = converter.convert(r"D:\projects\classloggerRAG\data\qustion papers\_23DC6PCSEA.pdf")
+result = converter.convert(r"D:\projects\classloggerRAG\data\question papers\23DC6PCSEA (2) (1).pdf")
 
-#print("=" * 100)
-#data = result.document.export_to_dict()
-#print("=" * 100)
+print("=" * 100)
+data = result.document.export_to_dict()
+print(data)
+print("=" * 100)
 
-#with open("paper.json", "w") as file:
-#    json.dump(data, file, indent=4)
-    
+
+
+with open("paper.json", "w") as file:
+    json.dump(data, file, indent=4)
+  
 with open("paper.json", "r") as file:
     data = json.load(file)
+
 
 for table in data["tables"]:
     grid = table["data"]["grid"]
@@ -107,4 +112,4 @@ for table in data["tables"]:
         
                 
             
-#print("=" * 100)
+#print("=" * 100)"""

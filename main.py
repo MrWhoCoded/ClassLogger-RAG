@@ -1,15 +1,29 @@
 from astrapy import DataAPIClient
 import requests
-import google
 import os
 import dotenv
 
 dotenv.load_dotenv()
 
-
 ASTRADB_API_KEY = os.getenv("ASTRADB_API_KEY")
 ASTRADB_ENDPOINT = os.getenv("ASTRADB_ENDPOINT")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+messages = {
+    "role": "system",
+    "content": """
+    You are ClassLogger AI, a study assistant for engineering students.
+
+    Use the retrieved notes and question papers to answer questions.
+
+    When discussing exam topics:
+    - Explain concepts clearly.
+    - Mention important points frequently asked in exams if available.
+    - If the answer is not present, say: 'This topic is not present in the provided study material.'
+
+    Do not fabricate information.
+"""
+}
 
 if not ASTRADB_API_KEY or not ASTRADB_ENDPOINT:
     raise ValueError("ASTRADB_API_KEY and ASTRADB_ENDPOINT must be set in .env file")
@@ -20,11 +34,6 @@ db = client.get_database(
 )
 
 collection = db.get_collection("classloggertest")
-
-messages = {
-    "role": "system",
-    "content": "You are an AI assistant that can answer questions based on the context you are given. Don't mention the context, just use it to inform your answers."
-}
 
 while True:
     query = input("Enter your prompt: ")
@@ -40,6 +49,13 @@ while True:
             )
         
         docs = cursor.to_list()
+        for i, doc in enumerate(docs):
+            print(f"\nRESULT {i+1}")
+            print(doc["subject"])
+            print(doc["type"])
+            print(doc.get("unit"))
+            print(doc["$vectorize"][:300])
+            print("+" * 50)
         context = "\n".join(
             (doc.get("$vectorize") or "") for doc in docs
         ).strip()
@@ -54,7 +70,6 @@ while True:
             }
         
         endpoint = "https://openrouter.ai/api/v1/chat/completions"
-        # Ensure endpoint has a scheme
         if not endpoint.startswith(("http://", "https://")):
             endpoint = "https://" + endpoint
 
@@ -65,9 +80,9 @@ while True:
                 "Content-Type": "application/json"
             },
             json={
-                "model": "qwen/qwen3.5-9b",
+                "model": "qwen/qwen3-8b",
                 "messages": [
-                    messages, rag_message
+                    rag_message, messages
                 ]
             }
         )
@@ -85,9 +100,12 @@ while True:
             continue
 
         #print(somejson['choices'])
-        print(response["choices"][0]["message"]["role"])
+        #print(response["choices"][0]["message"]["role"])
+        #print("=" * 50)
         print(response["choices"][0]["message"]["content"])
+        print("=" * 50)
         print(response["choices"][0]["message"]["reasoning"])
-        print(response["choices"][0]["message"]["reasoning_details"][0])
+        print("=" * 50)
+        #print(response["choices"][0]["message"]["reasoning_details"][0])
     except Exception as e:
             print(str(e))
