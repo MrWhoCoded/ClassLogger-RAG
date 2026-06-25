@@ -18,9 +18,90 @@ dotenv.load_dotenv()
 
 ASTRADB_API_KEY = os.getenv("ASTRADB_API_KEY")
 ASTRADB_ENDPOINT = os.getenv("ASTRADB_ENDPOINT")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not ASTRADB_API_KEY or not ASTRADB_ENDPOINT:
     raise ValueError("ASTRADB_API_KEY and ASTRADB_ENDPOINT must be set in .env file")
+
+question_paper_messages = {
+    "role": "system",
+    "content": """
+You are an information extraction engine.
+
+Your task is to extract and structure examination questions from the provided text.
+
+The input is text extracted from an engineering university question paper.
+
+Return ONLY valid JSON.
+
+Do not explain.
+Do not summarize.
+Do not add markdown.
+Do not add code fences.
+Do not add any text outside the JSON output.
+
+Return a JSON object with the following schema:
+
+{
+    "questions": [
+        {
+            "question_no": 1,
+            "subpart": "a",
+            "unit": "UNIT-I",
+            "question": "Question text",
+            "co": "CO1",
+            "po": "PO1",
+            "marks": 6,
+            "type": "pyq"
+        }
+    ]
+}
+
+Example Input:
+
+UNIT - I
+
+1
+a)
+What is Agile methodology?
+CO1
+PO1
+06
+
+Example Output:
+
+{
+  "questions": [
+    {
+      "question_no": 1,
+      "subpart": "a",
+      "unit": "UNIT-I",
+      "question": "What is Agile methodology?",
+      "co": "CO1",
+      "po": "PO1",
+      "marks": 6,
+      "type": "pyq"
+    }
+  ]
+}
+
+Rules:
+
+1. Extract every question present in the text.
+2. Preserve the complete question text exactly as written.
+3. Combine multiline questions into a single question string.
+4. Keep the current UNIT until a new UNIT appears.
+5. Ignore instructions, page numbers, headers, footers, USN fields, and decorative text.
+6. Ignore standalone OR entries.
+7. Marks must be integers.
+8. Question numbers must be integers.
+9. Subpart must be a, b, or c.
+10. If a question continues across multiple lines, merge them into one question.
+11. Do not omit any valid question.
+12. Return only the JSON object.
+13. Use only English language.
+"""
+}
 
 client = DataAPIClient()
 db = client.get_database(ASTRADB_ENDPOINT, token=ASTRADB_API_KEY)
@@ -59,6 +140,14 @@ def extract_text(file):
     
     return text
 
+def extract_text_question_paper(file):
+    converter = DocumentConverter()
+    result = converter.convert(file)
+    
+    text = result.document.export_to_text()
+    
+    return text
+
 def process_pdf_notes(file, subject):
         documents = []
         text = pdf_to_text(file)
@@ -91,60 +180,61 @@ def process_pdf_notes(file, subject):
 
 def process_question_paper(file, subject):
     documents = []
-    current_unit = None
-    current_question_no = None
+    text = extract_text_question_paper(file) 
     
-    converter = DocumentConverter()
-    result = converter.convert(file)
-    
-    data = result.document.export_to_dict()
-    
-    for table in data["tables"]:
-        grid = table["data"]["grid"]
+    try: 
+        rag_message = {
+                "role": "user",
+                "content": text
+            }
         
-        for row in grid:
-            cells = []
-            
-            for cell in row:
-                cells.append(cell["text"].strip())
-                
-            if len(cells) < 6:
-                print(f"Invalid row: {row}")
-                continue
-            
-            question_no = cells[0]
-            subquestion = cells[1]
-            question_text = cells[2]
-            co_type = cells[3]
-            po_type = cells[4]
-            marks = cells[5]
-            
-            if question_text.startswith("UNIT"):
-                current_unit = question_text.split()[-1]
-                continue
-            
-            if "OR" in cells:
-                continue
-                
-            try:
-                current_question_no = int(question_no)
-            except ValueError:
-                pass
-                
-            document = {
-                    "$vectorize": question_text,
-                    "subject": subject,
-                    "question_id": f"{current_question_no}",
-                    "question_no": current_question_no,
-                    "subpart": subquestion.replace(")", ""),
-                    "unit": current_unit,
-                    "co": co_type,
-                    "po": po_type,
-                    "marks": int(marks),
-                    "type": "pyq"
-                }
-            
-            documents.append(document)
+        endpoint = "https://openrouter.ai/api/v1/chat/completions"
+        if not endpoint.startswith(("http://", "https://")):
+            endpoint = "https://" + endpoint
+
+        resp = requests.post(
+            endpoint,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "qwen/qwen3-8b",
+                "messages": [
+                    rag_message, question_paper_messages
+                ], 
+            }
+        )
+
+        resp.raise_for_status()
+    except Exception:
+        print(f"HTTP error {resp.status_code}: {resp.text}")
+    
+    try:   
+        response = resp.json()
+    except ValueError:
+        print(f"Invalid JSON response (status {resp.status_code}): {resp.text}")
+        return
+    
+    result = response["choices"][0]["message"]["content"]
+    content = json.loads(result)
+    questions = content["questions"]
+    
+    for question in questions:     
+        document = {
+                "$vectorize": question["question"],
+                "subject": subject,
+                "question_id": f"{question["question_no"]}{question["subpart"]}",
+                "question_no": int(question["question_no"]),
+                "subpart": question["subpart"],
+                "unit": question["unit"],
+                "co": question["co"],
+                "po": question["po"],
+                "marks": int(question["marks"]),
+                "type": "pyq"
+            }
+        
+        documents.append(document)
             
     return documents
 
@@ -185,14 +275,14 @@ def process_ppt_doc_notes(file, subject):
 try:   
     for s in subdirs:
         for file in [f for f in Path(s).iterdir() if f.is_file()]:
+            documents = []
             subject = s.name
             if file.name not in data.keys() or not data[file.name]:
                 parent_folder = file.parent.name.lower()
                 print(f"Processing {file.name} in {parent_folder}")
 
                 if parent_folder == "question papers":
-                    documents = process_question_paper(file, subject)
-                    continue
+                    documents = process_question_paper(file, file.name)
                 elif file.name.endswith(".pdf"):
                     documents = process_pdf_notes(file, subject)
                 else:
