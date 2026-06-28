@@ -1,3 +1,5 @@
+import os
+import dotenv
 from astrapy import DataAPIClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import fitz
@@ -10,9 +12,6 @@ from docling.document_converter import DocumentConverter
 import tiktoken
 
 enc = tiktoken.get_encoding("cl100k_base")
-
-import os
-import dotenv
 
 dotenv.load_dotenv()
 

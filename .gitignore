@@ -1,6 +1,8 @@
 __pycache__/
 .vscode/
+.env
 test.py
 test2.py
 test3.py
-.env
+google-services.json
+classlogger-api.json

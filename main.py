@@ -35,30 +35,51 @@ db = client.get_database(
 
 collection = db.get_collection("classloggertest")
 
-while True:
-    query = input("Enter your prompt: ")
-    if query == "q":
-        break
+def filter_exams(query):
+    filtered = {}
+    keywords = ["exam", "question", "questions", "papers", "exams", "pyq", "pyqs"]
     
-    try:
-        cursor = collection.find(
-                {},
+    query = query.lower()
+    query.replace("\n", " ")
+    query.replace("\t", " ")
+    query.split(" ")
+    
+    for word in keywords:
+        if word in query:
+            filtered = {"type": "pyq"}
+            return filtered, True
+            
+    return filtered, False
+    
+def process_query(query, filter, limit=5):
+    cursor = collection.find(
+                filter=filter,
                 sort={"$vectorize": query},
-                limit=5,
+                limit=limit,
                 projection={"$vectorize": 1},
             )
         
-        docs = cursor.to_list()
-        for i, doc in enumerate(docs):
-            print(f"\nRESULT {i+1}")
-            print(doc["subject"])
-            print(doc["type"])
-            print(doc.get("unit"))
-            print(doc["$vectorize"][:300])
-            print("+" * 50)
-        context = "\n".join(
-            (doc.get("$vectorize") or "") for doc in docs
-        ).strip()
+    docs = cursor.to_list()
+    for i, doc in enumerate(docs):
+        """print(f"\nRESULT {i+1}")
+        print(doc["subject"])
+        print(doc["type"])
+        print(doc.get("unit"))
+        print(doc["$vectorize"][:300])
+        print("+" * 50)"""
+    context = "\n".join(
+        (doc.get("$vectorize") or "") for doc in docs
+    ).strip()
+    
+    return context
+
+def answer_query(query):
+    try:
+        context = process_query(query, {"type": "notes"})
+        
+        filtered, success = filter_exams(query)
+        if success:
+            context += process_query(query, filtered, limit=10)
         
         rag_message = {
                 "role": "user",
@@ -91,21 +112,32 @@ while True:
             resp.raise_for_status()
         except Exception:
             print(f"HTTP error {resp.status_code}: {resp.text}")
-            continue
+            return
 
         try:
             response = resp.json()
         except ValueError:
             print(f"Invalid JSON response (status {resp.status_code}): {resp.text}")
-            continue
+            return
 
-        #print(somejson['choices'])
-        #print(response["choices"][0]["message"]["role"])
-        #print("=" * 50)
-        print(response["choices"][0]["message"]["content"])
-        print("=" * 50)
-        print(response["choices"][0]["message"]["reasoning"])
-        print("=" * 50)
-        #print(response["choices"][0]["message"]["reasoning_details"][0])
+
+        return response
     except Exception as e:
             print(str(e))
+            return
+
+if __name__ == "__main__":
+    while True:
+        query = input("Enter your prompt: ")
+        if query == "q":
+            break
+        
+        response = answer_query(query)
+        
+        if isinstance(response, dict):
+            print("=" * 50)
+            print(response["choices"][0]["message"]["content"])
+            print("=" * 50)
+            print(response["choices"][0]["message"]["reasoning"])
+            
+    

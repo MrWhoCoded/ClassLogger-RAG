@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title>ClassLogger AI — RAG Study Assistant</title>
+  <meta name="description" content="ClassLogger AI is a retrieval-augmented study assistant for engineering students. Ask questions about notes, slides, and question papers stored in AstraDB." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <header class="header" role="banner">
+    <div class="header-left">
+      <!-- 30×30 copper logo mark -->
+      <div class="logo-mark" aria-hidden="true">CL</div>
+      <div>
+        <div class="header-title">ClassLogger AI</div>
+        <div class="header-sub">RAG Study Assistant</div>
+      </div>
+    </div>
+
+    <!-- Model status pill with pulsing dot -->
+    <div class="status-pill" role="status" aria-label="Model online: qwen3-8b">
+      <span class="status-dot" aria-hidden="true"></span>
+      qwen3-8b
+    </div>
+  </header>
+
+  <!-- ── Thread ────────────────────────────────────────────────────────────── -->
+  <main class="thread" id="thread" role="log" aria-live="polite" aria-label="Chat thread">
+
+    <!-- Welcome state — removed from DOM on first send -->
+    <div class="welcome" id="welcome" role="region" aria-label="Welcome">
+      <div class="welcome-icon" aria-hidden="true">⚡</div>
+      <h1>ClassLogger AI</h1>
+      <p>Ask questions about your notes, slides, or question papers. Powered by AstraDB vector search + OpenRouter LLM.</p>
+
+      <!-- Status notice — what's available right now -->
+      <div class="welcome-notice" role="note" aria-label="Current system status">
+        <p>
+          <span class="notice-dot available" aria-hidden="true"></span>
+          <strong>Next Gen Databases</strong> &amp; <strong>Software Engineering</strong> — Notes + PYQs vectorized
+        </p>
+        <p>
+          <span class="notice-dot wip" aria-hidden="true"></span>
+          Attendance Intelligence — Currently in development
+        </p>
+      </div>
+
+      <div class="suggestion-chips" role="group" aria-label="Suggested questions">
+        <button
+          class="chip"
+          id="chip-agile"
+          onclick="sendChip(this)"
+          type="button"
+        >What is Agile methodology?</button>
+        <button
+          class="chip"
+          id="chip-dbms"
+          onclick="sendChip(this)"
+          type="button"
+        >Most repeated DBMS questions</button>
+        <button
+          class="chip"
+          id="chip-norm"
+          onclick="sendChip(this)"
+          type="button"
+        >Explain Graph databases</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ────────────────────────────────────────────────────────────── -->
+  <footer class="footer" role="contentinfo">
+    <div class="input-row">
+      <textarea
+        id="input"
+        class="input-field"
+        placeholder="Ask about your notes or question papers…"
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+        aria-label="Message input"
+        autocomplete="off"
+        spellcheck="true"
+      ></textarea>
+      <button
+        class="send-btn"
+        id="sendBtn"
+        onclick="sendMessage()"
+        type="button"
+        title="Send (Enter)"
+        aria-label="Send message"
+      >
+        <!-- Arrow icon -->
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M14 8L2 2l2.5 6L2 14l12-6z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <div class="footer-hint" aria-hidden="true">
+      Enter to send · Shift+Enter for newline
+    </div>
+  </footer>
+
+</div>
+
+<!-- Script deferred so DOM is ready when it runs -->
+<script src="chat.js" defer></script>
+
+</body>
+</html>
