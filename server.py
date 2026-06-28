@@ -12,6 +12,7 @@ Then open http://localhost:5000
 
 from flask import Flask, request, jsonify, send_from_directory
 from main import answer_query
+import os
 
 # ── App Setup ────────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder="frontend", static_url_path="")
@@ -74,4 +75,4 @@ def query():
 if __name__ == "__main__":
     print("\n  ClassLogger AI server")
     print("  http://localhost:5000\n")
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
